@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: contactflow-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: contactflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: contactflow-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: contactflow-api
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgrespassword@postgres:5432/contactflow?schema=public"
+      REDIS_URL: "redis://redis:6379"
+      APP_BASE_URL: "http://localhost:5173"
+      API_BASE_URL: "http://localhost:4000/api/v1"
+      SESSION_SECRET: "development-insecure-secret-key-32b"
+      TOKEN_ENCRYPTION_KEY: "01234567890123456789012345678901"
+    depends_on:
+      - postgres
+      - redis
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: contactflow-web
+    restart: always
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: "http://localhost:4000/api/v1"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:

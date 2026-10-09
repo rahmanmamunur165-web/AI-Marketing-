@@ -1,0 +1,6 @@
+{
+  "name": "ContactFlow",
+  "description": "Public business email extractor SaaS, contact manager, CSV exporter, and compliant Gmail campaign outreach assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

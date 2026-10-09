@@ -1,0 +1,157 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String            @id @default(uuid())
+  email            String            @unique
+  passwordHash     String?
+  emailVerifiedAt  DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  scans            Scan[]
+  contacts         Contact[]
+  googleConnection GoogleConnection?
+  campaigns        Campaign[]
+  suppressions     Suppression[]
+  auditLogs        AuditLog[]
+
+  @@map("users")
+}
+
+model Scan {
+  id               String        @id @default(uuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submittedUrl     String
+  normalizedDomain String
+  status           String        @default("PENDING") // PENDING, RUNNING, COMPLETED, CANCELLED, FAILED
+  pagesVisited     Int           @default(0)
+  emailsFound      Int           @default(0)
+  errorCount       Int           @default(0)
+  createdAt        DateTime      @default(now())
+  startedAt        DateTime?
+  completedAt      DateTime?
+
+  scannedPages     ScannedPage[]
+
+  @@index([userId, createdAt])
+  @@index([normalizedDomain])
+  @@map("scans")
+}
+
+model ScannedPage {
+  id           String    @id @default(uuid())
+  scanId       String
+  scan         Scan      @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  canonicalUrl String
+  httpStatus   Int       @default(200)
+  scannedAt    DateTime  @default(now())
+  errorCode    String?
+
+  @@index([scanId])
+  @@index([canonicalUrl])
+  @@map("scanned_pages")
+}
+
+model Contact {
+  id                String              @id @default(uuid())
+  userId            String
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email             String
+  domain            String
+  companyName       String?
+  sourceUrl         String
+  discoveredAt      DateTime            @default(now())
+  validationStatus  String              @default("PUBLIC_BUSINESS") // PUBLIC_BUSINESS, ROLE_ACCOUNT, SYNTAX_VALID
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  recipients        CampaignRecipient[]
+
+  @@unique([userId, email])
+  @@index([userId, domain])
+  @@index([discoveredAt])
+  @@map("contacts")
+}
+
+model GoogleConnection {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleAccountEmail    String
+  encryptedRefreshToken String
+  grantedScopes         String
+  connectedAt           DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("google_connections")
+}
+
+model Campaign {
+  id              String              @id @default(uuid())
+  userId          String
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  subject         String
+  bodyText        String
+  bodyHtml        String?
+  status          String              @default("DRAFT") // DRAFT, APPROVED, SENDING, COMPLETED, CANCELLED
+  approvedAt      DateTime?
+  createdAt       DateTime            @default(now())
+  completedAt     DateTime?
+
+  recipients      CampaignRecipient[]
+
+  @@index([userId, createdAt])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id                     String    @id @default(uuid())
+  campaignId             String
+  campaign               Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId              String
+  contact                Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  recipientEmailSnapshot String
+  status                 String    @default("QUEUED") // QUEUED, SENT_SUBMITTED, FAILED, SUPPRESSED
+  providerMessageId      String?
+  errorCode              String?
+  attemptedAt            DateTime?
+  sentAt                 DateTime?
+
+  @@index([campaignId, status])
+  @@map("campaign_recipients")
+}
+
+model Suppression {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  normalizedEmail String
+  reason          String   @default("MANUAL_OPT_OUT") // UNSUBSCRIBE, MANUAL_OPT_OUT, BOUNCE_DEFENSE
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, normalizedEmail])
+  @@map("suppressions")
+}
+
+model AuditLog {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action            String
+  resourceType      String
+  resourceId        String?
+  sanitizedMetadata Json     @default("{}")
+  createdAt         DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
