@@ -61,6 +61,9 @@ import com.example.ui.components.SaaSBadge
 import com.example.ui.theme.EmeraldTertiary
 import com.example.ui.theme.IndigoPrimary
 import com.example.ui.theme.StatusError
+import com.example.auth.AuthManager
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import com.example.viewmodel.ContactFlowViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -79,6 +82,10 @@ fun SettingsScreen(
     var showAddSuppressionDialog by remember { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val currentUser = AuthManager.currentUser
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -86,6 +93,73 @@ fun SettingsScreen(
         contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Section: Authenticated Firebase Account
+        item {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(EmeraldTertiary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Security, contentDescription = null, tint = EmeraldTertiary, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Firebase Cloud Workspace",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "Google Account: ${currentUser?.email ?: "Signed In"}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        SaaSBadge(text = "ACTIVE", type = "SUCCESS")
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "UID: ${currentUser?.uid?.take(16)}... · Database: ai-studio-android-contactf-3c0b2fdc",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            AuthManager.signOut(context, coroutineScope) {
+                                viewModel.showMessage("Signed out of Google session")
+                            }
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusError),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().testTag("btn_sign_out_google")
+                    ) {
+                        Text("Sign Out of Google Account")
+                    }
+                }
+            }
+        }
+
         // Section: Google OAuth & Gmail Integration
         item {
             Card(

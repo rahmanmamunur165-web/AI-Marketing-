@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.email is string && data.email.size() > 3 && data.email.size() <= 200 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidContact(data) {
+      return data.email is string && data.email.size() > 3 && data.email.size() <= 200 &&
+             data.domain is string && data.domain.size() > 1 && data.domain.size() <= 120 &&
+             data.sourceUrl is string && data.sourceUrl.size() > 5 && data.sourceUrl.size() <= 1000 &&
+             data.validationStatus in ['ROLE_ACCOUNT', 'PUBLIC_BUSINESS', 'SYNTAX_VALID'] &&
+             (!('companyName' in data) || data.companyName == null || (data.companyName is string && data.companyName.size() <= 200)) &&
+             (!('isSuppressed' in data) || data.isSuppressed is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidScan(data) {
+      return data.submittedUrl is string && data.submittedUrl.size() > 5 && data.submittedUrl.size() <= 1000 &&
+             data.normalizedDomain is string && data.normalizedDomain.size() > 1 && data.normalizedDomain.size() <= 120 &&
+             data.status in ['PENDING', 'RUNNING', 'COMPLETED', 'CANCELLED', 'FAILED'] &&
+             (!('pagesVisited' in data) || data.pagesVisited is int) &&
+             (!('emailsFound' in data) || data.emailsFound is int) &&
+             (!('errorCount' in data) || data.errorCount is int) &&
+             (!('maxPages' in data) || data.maxPages is int) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidCampaign(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
+             data.subject is string && data.subject.size() > 0 && data.subject.size() <= 250 &&
+             data.bodyText is string && data.bodyText.size() <= 20000 &&
+             data.status in ['DRAFT', 'APPROVED', 'SENDING', 'COMPLETED', 'CANCELLED'] &&
+             (!('totalRecipients' in data) || data.totalRecipients is int) &&
+             (!('sentCount' in data) || data.sentCount is int) &&
+             (!('failedCount' in data) || data.failedCount is int) &&
+             (!('suppressedCount' in data) || data.suppressedCount is int) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidSuppression(data) {
+      return data.normalizedEmail is string && data.normalizedEmail.size() > 3 && data.normalizedEmail.size() <= 200 &&
+             data.reason is string && data.reason.size() <= 200 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // User Profile Document
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+                       incoming().keys().hasAll(['userId', 'email', 'createdAt']) &&
+                       isValidUserProfile(incoming());
+      allow update: if isOwner(userId) &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']);
+      allow delete: if isOwner(userId);
+
+      // Contacts Subcollection
+      match /contacts/{contactId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(contactId) &&
+                         incoming().keys().hasAll(['email', 'domain', 'sourceUrl', 'validationStatus', 'createdAt']) &&
+                         isValidContact(incoming());
+        allow update: if isOwner(userId) &&
+                         isValidId(contactId) &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidContact(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['companyName', 'isSuppressed', 'validationStatus', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(contactId);
+      }
+
+      // Scans Subcollection
+      match /scans/{scanId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(scanId) &&
+                         incoming().keys().hasAll(['submittedUrl', 'normalizedDomain', 'status', 'createdAt']) &&
+                         isValidScan(incoming());
+        allow update: if isOwner(userId) &&
+                         isValidId(scanId) &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidScan(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'pagesVisited', 'emailsFound', 'errorCount', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(scanId);
+      }
+
+      // Campaigns Subcollection
+      match /campaigns/{campaignId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(campaignId) &&
+                         incoming().keys().hasAll(['name', 'subject', 'bodyText', 'status', 'createdAt']) &&
+                         isValidCampaign(incoming());
+        allow update: if isOwner(userId) &&
+                         isValidId(campaignId) &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidCampaign(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'subject', 'bodyText', 'status', 'sentCount', 'failedCount', 'suppressedCount', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(campaignId);
+      }
+
+      // Suppressions Subcollection
+      match /suppressions/{suppressionId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(suppressionId) &&
+                         incoming().keys().hasAll(['normalizedEmail', 'reason', 'createdAt']) &&
+                         isValidSuppression(incoming());
+        allow update: if isOwner(userId) &&
+                         isValidId(suppressionId) &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidSuppression(incoming());
+        allow delete: if isOwner(userId) && isValidId(suppressionId);
+      }
+    }
+  }
+}

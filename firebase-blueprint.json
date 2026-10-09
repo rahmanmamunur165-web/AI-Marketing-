@@ -1,0 +1,224 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile for ContactFlow workspace",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique Firebase Authentication UID"
+        },
+        "email": {
+          "type": "string",
+          "description": "User Google email address"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp via serverTimestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp via serverTimestamp"
+        }
+      },
+      "required": ["userId", "email", "createdAt"]
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "Discovered public business email contact",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Normalized business email"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name"
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Public company name"
+        },
+        "sourceUrl": {
+          "type": "string",
+          "description": "Source webpage URL"
+        },
+        "validationStatus": {
+          "type": "string",
+          "enum": ["ROLE_ACCOUNT", "PUBLIC_BUSINESS", "SYNTAX_VALID"],
+          "description": "Classification status"
+        },
+        "isSuppressed": {
+          "type": "boolean",
+          "description": "Whether contact is suppressed or opted-out"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp created via serverTimestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp updated via serverTimestamp"
+        }
+      },
+      "required": ["email", "domain", "sourceUrl", "validationStatus", "createdAt"]
+    },
+    "Scan": {
+      "title": "Scan",
+      "description": "Website crawler background scan record",
+      "type": "object",
+      "properties": {
+        "submittedUrl": {
+          "type": "string",
+          "description": "Target website URL"
+        },
+        "normalizedDomain": {
+          "type": "string",
+          "description": "Target domain"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING", "RUNNING", "COMPLETED", "CANCELLED", "FAILED"],
+          "description": "Scan job status"
+        },
+        "pagesVisited": {
+          "type": "integer",
+          "description": "Total pages crawled"
+        },
+        "emailsFound": {
+          "type": "integer",
+          "description": "Discovered emails count"
+        },
+        "errorCount": {
+          "type": "integer",
+          "description": "Encountered error count"
+        },
+        "maxPages": {
+          "type": "integer",
+          "description": "Max page limit for this crawl"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp created via serverTimestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp updated via serverTimestamp"
+        }
+      },
+      "required": ["submittedUrl", "normalizedDomain", "status", "createdAt"]
+    },
+    "Campaign": {
+      "title": "Campaign",
+      "description": "Compliant email outreach campaign draft and delivery stats",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Campaign title"
+        },
+        "subject": {
+          "type": "string",
+          "description": "Email subject line"
+        },
+        "bodyText": {
+          "type": "string",
+          "description": "Email plain text body"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["DRAFT", "APPROVED", "SENDING", "COMPLETED", "CANCELLED"],
+          "description": "Outreach dispatch status"
+        },
+        "totalRecipients": {
+          "type": "integer",
+          "description": "Total queued recipients"
+        },
+        "sentCount": {
+          "type": "integer",
+          "description": "Submitted to Gmail API count"
+        },
+        "failedCount": {
+          "type": "integer",
+          "description": "Failed count"
+        },
+        "suppressedCount": {
+          "type": "integer",
+          "description": "Suppressed count"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp created via serverTimestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp updated via serverTimestamp"
+        }
+      },
+      "required": ["name", "subject", "bodyText", "status", "createdAt"]
+    },
+    "Suppression": {
+      "title": "Suppression",
+      "description": "Opt-out and suppression list entry",
+      "type": "object",
+      "properties": {
+        "normalizedEmail": {
+          "type": "string",
+          "description": "Suppressed email address"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Reason for suppression"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp created via serverTimestamp"
+        }
+      },
+      "required": ["normalizedEmail", "reason", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "User profile document isolated per authenticated user"
+    },
+    "/users/{userId}/contacts/{contactId}": {
+      "schema": {
+        "$ref": "#/entities/Contact"
+      },
+      "description": "Business contact documents belonging to user"
+    },
+    "/users/{userId}/scans/{scanId}": {
+      "schema": {
+        "$ref": "#/entities/Scan"
+      },
+      "description": "Website scan history belonging to user"
+    },
+    "/users/{userId}/campaigns/{campaignId}": {
+      "schema": {
+        "$ref": "#/entities/Campaign"
+      },
+      "description": "Outreach campaigns belonging to user"
+    },
+    "/users/{userId}/suppressions/{suppressionId}": {
+      "schema": {
+        "$ref": "#/entities/Suppression"
+      },
+      "description": "Suppressed emails belonging to user"
+    }
+  }
+}
